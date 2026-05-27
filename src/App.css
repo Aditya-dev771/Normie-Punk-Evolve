@@ -1,0 +1,305 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #050505;
+  color: #f5f5f5;
+  font-family: "Courier New", monospace;
+}
+
+.page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px;
+}
+
+.hero {
+  border: 1px solid #2a2a2a;
+  padding: 30px;
+  margin-bottom: 30px;
+  background: #0a0a0a;
+}
+
+.wallet-top {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 30px;
+}
+
+.hero h1 {
+  font-size: 52px;
+  letter-spacing: 6px;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.hero p {
+  color: #9a9a9a;
+  font-size: 14px;
+}
+
+.panel {
+  border: 1px solid #222;
+  background: #0b0b0b;
+  padding: 30px;
+  margin-bottom: 24px;
+}
+
+.panel h2 {
+  font-size: 28px;
+  letter-spacing: 3px;
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.punk-card {
+  border: 1px solid #222;
+  background: #0b0b0b;
+  padding: 24px;
+}
+
+.keep {
+  border-color: #2d2d2d;
+}
+
+.burn {
+  border-color: #444;
+}
+
+input {
+  width: 100%;
+  padding: 16px;
+  background: #050505;
+  border: 1px solid #2a2a2a;
+  color: white;
+  font-size: 16px;
+  margin-top: 14px;
+  margin-bottom: 18px;
+  font-family: "Courier New", monospace;
+}
+
+button {
+  background: #111;
+  color: white;
+  border: 1px solid #555;
+  padding: 14px 22px;
+  cursor: pointer;
+  font-family: "Courier New", monospace;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+button:hover {
+  background: white;
+  color: black;
+}
+
+.danger {
+  border-color: #888;
+}
+
+.points {
+  font-size: 56px;
+  font-weight: bold;
+}
+
+.status {
+  border: 1px solid #222;
+  background: #0a0a0a;
+  padding: 18px;
+  color: #bdbdbd;
+}
+
+.owned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.owned-card {
+  border: 1px solid #222;
+  background: #080808;
+  padding: 14px;
+}
+
+.owned-card img {
+  width: 100%;
+  image-rendering: pixelated;
+  border: 1px solid #222;
+  filter: grayscale(100%);
+}
+
+.owned-card h3 {
+  margin-top: 12px;
+}
+
+.no-punks {
+  border: 1px solid #333;
+  background: #080808;
+  padding: 30px;
+  text-align: center;
+}
+
+.no-punks a {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border: 1px solid #777;
+  color: white;
+  text-decoration: none;
+}
+
+.no-punks a:hover {
+  background: white;
+  color: black;
+}
+
+@media (max-width: 800px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero h1 {
+    font-size: 34px;
+  }
+}
+
+.small-label {
+  color: #8a8a8a;
+  letter-spacing: 5px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.visual-frame {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 1 / 1;
+  margin: 24px auto;
+  padding: 14px;
+  border: 1px solid #4a4a4a;
+  background: #111;
+  position: relative;
+}
+
+.visual-frame::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid #2d2d2d;
+  pointer-events: none;
+}
+
+.visual-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: white;
+  image-rendering: pixelated;
+  filter: grayscale(100%);
+}
+
+.empty-visual {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  border: 1px dashed #333;
+}
+
+.burn-frame {
+  border-color: #777;
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.06);
+}
+.editor-panel {
+  border: 1px solid #333;
+  background: #080808;
+  padding: 30px;
+  margin: 30px 0;
+  text-align: center;
+}
+
+.pixel-editor-wrapper {
+  position: relative;
+  width: 480px;
+  height: 480px;
+  margin: 30px auto;
+  border: 1px solid #333;
+  background: #111;
+}
+
+.editor-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  filter: grayscale(100%);
+}
+
+.pixel-grid {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  grid-template-rows: repeat(24, 1fr);
+
+  z-index: 5;
+}
+
+.pixel {
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+}
+
+.pixel.active {
+  background: rgba(0,0,0,0.72);
+}
+
+.pixel:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.danger-small {
+  border-color: #666;
+}
+
+.visual-frame img:hover {
+  transform: scale(1.02);
+  transition: 0.2s;
+}
+
+.tool-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.tool-active {
+  background: white;
+  color: black;
+}
+
+.owned-card button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.editor-panel button {
+  margin: 10px;
+}

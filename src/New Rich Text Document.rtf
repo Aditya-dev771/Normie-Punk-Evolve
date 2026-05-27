@@ -1,0 +1,58 @@
+import { useState } from "react";
+import "./App.css";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+
+function App() {
+  const [mainTokenId, setMainTokenId] = useState("");
+  const [burnTokenId, setBurnTokenId] = useState("");
+
+  return (
+    <div className="page">
+      <div className="hero">
+        <h1>Normie Punk Evolution</h1>
+
+        <p>
+          Burn one Punk to evolve another Punk.
+        </p>
+
+        <ConnectButton />
+
+        <a
+          href="https://normiepunk.xyz"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Back To Registry
+        </a>
+      </div>
+
+      <div className="panel">
+        <h2>Main Punk</h2>
+
+        <input
+          placeholder="Main Punk ID"
+          value={mainTokenId}
+          onChange={(e) => setMainTokenId(e.target.value)}
+        />
+      </div>
+
+      <div className="panel">
+        <h2>Burn Punk</h2>
+
+        <input
+          placeholder="Burn Punk ID"
+          value={burnTokenId}
+          onChange={(e) => setBurnTokenId(e.target.value)}
+        />
+      </div>
+
+      <div className="panel">
+        <button>
+          Burn & Evolve
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default App;{\rtf1}
