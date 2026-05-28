@@ -383,15 +383,35 @@ function App() {
 
         <h1>Normie Punk Evolve</h1>
         <p>Burn Punks, earn points, and create a new custom image from scratch.</p>
+<div className="hero-links">
+  <a
+    href="https://identity.normiepunk.xyz"
+    target="_blank"
+    rel="noreferrer"
+    className="back-button"
+  >
+    Go To IDENTITY
+  </a>
 
-        <a
-          href="https://identity.normiepunk.xyz"
-          target="_blank"
-          rel="noreferrer"
-          className="back-button"
-        >
-          Go To IDENTITY 
-        </a>
+  <a
+    href="https://opensea.io/collection/normie-punk-"
+    target="_blank"
+    rel="noreferrer"
+    className="back-button"
+  >
+    OpenSea
+  </a>
+
+  <a
+    href="https://x.com/PunkNormie"
+    target="_blank"
+    rel="noreferrer"
+    className="back-button"
+  >
+    X / Twitter
+  </a>
+</div>
+       
       </div>
 
       <div className="tabs">
