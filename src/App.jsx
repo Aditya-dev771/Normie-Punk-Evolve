@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import "./App.css";
+import { uploadToIPFS } from "./uploadToIPFS";
 
 const NFT_CONTRACT = "0xdeff04cc85d9cfe5b4b9dbce03129491d93f213c";
 const EVOLUTION_CONTRACT = "0x28d578E7F57dF6ef2A4365D605bAD4e6F2dabdB0";
-
-// Replace this with your new image storage contract
 const CUSTOM_IMAGE_CONTRACT = "0xf5731fB1594597C3CCDe8c8825B97f7F9030C380";
 
 const CANVAS_UNLOCKS = [
@@ -103,8 +102,6 @@ function App() {
   const [tool, setTool] = useState("pencil");
   const [pixels, setPixels] = useState({});
 
-  const previewCanvasRef = useRef(null);
-
   function togglePixel(x, y) {
     const key = `${x}-${y}`;
 
@@ -153,7 +150,6 @@ function App() {
       setStatus("Loading your Normie Punks...");
 
       const url = `https://base-mainnet.g.alchemy.com/nft/v3/u7hGUvpFPsD19f54Tty3I/getNFTsForOwner?owner=${address}&contractAddresses[]=${NFT_CONTRACT}`;
-
       const res = await fetch(url);
       const data = await res.json();
 
@@ -204,6 +200,10 @@ function App() {
         return setStatus("Select main Punk and burn Punk first");
       }
 
+      if (selectedTokenId === burnTokenId) {
+        return setStatus("Main Punk and burn Punk cannot be same");
+      }
+
       const hash = await writeContractAsync({
         address: EVOLUTION_CONTRACT,
         abi: EVOLUTION_ABI,
@@ -227,6 +227,7 @@ function App() {
   async function checkPoints() {
     try {
       if (!selectedTokenId) return setStatus("Select a Punk first");
+      if (!publicClient) return setStatus("Public client not ready");
 
       const result = await publicClient.readContract({
         address: EVOLUTION_CONTRACT,
@@ -254,52 +255,48 @@ function App() {
   }
 
   function exportCanvasBlob() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const canvas = document.createElement("canvas");
       const size = 1024;
+
       canvas.width = size;
       canvas.height = size;
 
       const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+
       ctx.imageSmoothingEnabled = false;
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, size, size);
 
       const pixelSize = size / gridSize;
 
-      Object.entries(pixels).forEach(([key, pixelColor]) => {
+      Object.keys(pixels).forEach((key) => {
         const [x, y] = key.split("-").map(Number);
-        ctx.fillStyle = pixelColor;
+
+        ctx.fillStyle = "#000000";
         ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
       });
 
-      canvas.toBlob((blob) => resolve(blob), "image/png");
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("PNG export failed"));
+          return;
+        }
+
+        resolve(blob);
+      }, "image/png");
     });
-  }
-
-  async function uploadImageToIPFS(blob) {
-    // Recommended: create your own backend route for Pinata/NFT.Storage.
-    // Never expose Pinata secret key in frontend.
-    const formData = new FormData();
-    formData.append("file", blob, `normie-punk-${selectedTokenId}.png`);
-
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (!data.imageURI) {
-      throw new Error("IPFS upload failed");
-    }
-
-    return data.imageURI;
   }
 
   async function saveCustomNFTImage() {
     try {
       if (!selectedTokenId) return setStatus("Select a Punk first");
+      if (!publicClient) return setStatus("Public client not ready");
 
       const unlock = CANVAS_UNLOCKS.find((c) => c.size === gridSize);
 
@@ -314,8 +311,8 @@ function App() {
       setStatus("Exporting image...");
       const blob = await exportCanvasBlob();
 
-      setStatus("Uploading image to IPFS...");
-      const imageURI = await uploadImageToIPFS(blob);
+      setStatus("Uploading image to Lighthouse IPFS...");
+      const imageURI = await uploadToIPFS(blob);
 
       setStatus("Saving custom image onchain...");
       const hash = await writeContractAsync({
@@ -327,22 +324,40 @@ function App() {
 
       await publicClient.waitForTransactionReceipt({ hash });
 
-      setStatus("Custom NFT image saved. Refresh metadata on OpenSea.");
+      setStatus(`Custom image saved: ${imageURI}`);
     } catch (error) {
       console.log(error);
       setStatus(error.shortMessage || error.message);
     }
   }
 
-  function downloadImage() {
-    exportCanvasBlob().then((blob) => {
+  async function downloadImage() {
+    try {
+      if (Object.keys(pixels).length === 0) {
+        setStatus("Draw something before downloading");
+        return;
+      }
+
+      setStatus("Preparing PNG download...");
+
+      const blob = await exportCanvasBlob();
       const url = URL.createObjectURL(blob);
+
       const link = document.createElement("a");
       link.href = url;
-      link.download = `normie-punk-${selectedTokenId || "custom"}.png`;
+      link.download = `normie-punk-${selectedTokenId || "custom"}-${gridSize}x${gridSize}.png`;
+
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+
       URL.revokeObjectURL(url);
-    });
+
+      setStatus("PNG downloaded");
+    } catch (error) {
+      console.log(error);
+      setStatus(error.message || "Download failed");
+    }
   }
 
   useEffect(() => {
@@ -504,6 +519,7 @@ function App() {
                   {punk.image && (
                     <img src={punk.image} alt={`Normie Punk ${punk.id}`} />
                   )}
+
                   <h3>#{punk.id}</h3>
 
                   <button
@@ -570,7 +586,6 @@ function App() {
               >
                 Eraser
               </button>
-
             </div>
 
             <p>
@@ -582,6 +597,7 @@ function App() {
               className="pixel-grid"
               style={{
                 gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+                gridTemplateRows: `repeat(${gridSize}, 1fr)`,
               }}
             >
               {Array.from({ length: gridSize * gridSize }).map((_, index) => {
