@@ -6,7 +6,7 @@ import { uploadToIPFS } from "./uploadToIPFS";
 
 const NFT_CONTRACT = "0xdeff04cc85d9cfe5b4b9dbce03129491d93f213c";
 const EVOLUTION_CONTRACT = "0x28d578E7F57dF6ef2A4365D605bAD4e6F2dabdB0";
-const CUSTOM_IMAGE_CONTRACT = "0xf5731fB1594597C3CCDe8c8825B97f7F9030C380";
+const CUSTOM_IMAGE_CONTRACT = "0x2AfBa0f66CAfCc69161c7a14f5aBBa0014d43911";
 
 const CANVAS_UNLOCKS = [
   { label: "24x24", size: 24, cost: 50 },
@@ -72,8 +72,16 @@ const CUSTOM_IMAGE_ABI = [
     inputs: [
       { name: "tokenId", type: "uint256" },
       { name: "imageURI", type: "string" },
+      { name: "cost", type: "uint256" },
     ],
     outputs: [],
+  },
+  {
+    name: "availablePoints",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
   },
 ];
 
@@ -213,6 +221,9 @@ function App() {
 
       await publicClient.waitForTransactionReceipt({ hash });
 
+await checkPoints();
+
+setStatus(`Custom image saved: ${imageURI}`);
       setStatus("Burn complete. Points earned.");
       setBurnTokenId("");
       setBurnImage("");
@@ -230,11 +241,11 @@ function App() {
       if (!publicClient) return setStatus("Public client not ready");
 
       const result = await publicClient.readContract({
-        address: EVOLUTION_CONTRACT,
-        abi: EVOLUTION_ABI,
-        functionName: "editPoints",
-        args: [BigInt(selectedTokenId)],
-      });
+  address: CUSTOM_IMAGE_CONTRACT,
+  abi: CUSTOM_IMAGE_ABI,
+  functionName: "availablePoints",
+  args: [BigInt(selectedTokenId)],
+});
 
       setPoints(result.toString());
       setStatus("Points loaded");
@@ -319,7 +330,11 @@ function App() {
         address: CUSTOM_IMAGE_CONTRACT,
         abi: CUSTOM_IMAGE_ABI,
         functionName: "setCustomImage",
-        args: [BigInt(selectedTokenId), imageURI],
+        args: [
+  BigInt(selectedTokenId),
+  imageURI,
+  BigInt(unlock.cost),
+],
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
