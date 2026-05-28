@@ -223,8 +223,7 @@ function App() {
 
 await checkPoints();
 
-setStatus(`Custom image saved: ${imageURI}`);
-      setStatus("Burn complete. Points earned.");
+setStatus("Burn complete. Points earned.");
       setBurnTokenId("");
       setBurnImage("");
 
@@ -338,7 +337,7 @@ setStatus(`Custom image saved: ${imageURI}`);
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
-
+	await checkPoints();
       setStatus(`Custom image saved: ${imageURI}`);
     } catch (error) {
       console.log(error);
