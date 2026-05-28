@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3001;
 
 const RPC_URL = "https://mainnet.base.org";
 
-const CUSTOM_IMAGE_CONTRACT = "0x2AfBa0f66CAfCc69161c7a14f5aBBa0014d43911";
+const CUSTOM_IMAGE_CONTRACT = "0x127517ecEf8B31fa6Df2Bf784FA090E3905F3115";
 
 const ORIGINAL_BASE_URI =
   "https://young-rattlesnake-78wwa.lighthouseweb3.xyz/ipfs/bafybeibjhuypss67sixkxcioknasckg7s5slfzwuboznrmfcgbfxxys6pq/";
