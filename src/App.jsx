@@ -385,12 +385,12 @@ function App() {
         <p>Burn Punks, earn points, and create a new custom image from scratch.</p>
 
         <a
-          href="https://normiepunk.xyz"
+          href="https://agent.normiepunk.xyz"
           target="_blank"
           rel="noreferrer"
           className="back-button"
         >
-          Back To Registry
+          Go To Registry
         </a>
       </div>
 
