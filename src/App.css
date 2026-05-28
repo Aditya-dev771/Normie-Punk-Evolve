@@ -225,68 +225,21 @@ button:hover {
   box-shadow: 0 0 40px rgba(255, 255, 255, 0.06);
 }
 .editor-panel {
-  border: 1px solid #333;
-  background: #080808;
-  padding: 30px;
-  margin: 30px 0;
+  max-width: 760px;
+  margin: 50px auto;
+  padding: 32px;
+  border: 1px solid #2b2b2b;
+  background: #070707;
   text-align: center;
 }
 
-.pixel-editor-wrapper {
-  position: relative;
-  width: 480px;
-  height: 480px;
-  margin: 30px auto;
-  border: 1px solid #333;
-  background: #111;
-}
-
-.editor-background {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  filter: grayscale(100%);
-}
-
-.pixel-grid {
-  position: absolute;
-  inset: 0;
-
-  display: grid;
-  grid-template-columns: repeat(24, 1fr);
-  grid-template-rows: repeat(24, 1fr);
-
-  z-index: 5;
-}
-
-.pixel {
-  border: 1px solid rgba(255,255,255,0.08);
-  cursor: pointer;
-}
-
-.pixel.active {
-  background: rgba(0,0,0,0.72);
-}
-
-.pixel:hover {
-  background: rgba(255,255,255,0.12);
-}
-
-.danger-small {
-  border-color: #666;
-}
-
-.visual-frame img:hover {
-  transform: scale(1.02);
-  transition: 0.2s;
-}
-
+.canvas-unlocks,
 .tool-row {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
   margin: 20px 0;
 }
 
@@ -295,11 +248,75 @@ button:hover {
   color: black;
 }
 
+.pixel-grid {
+  width: min(78vw, 540px);
+  height: min(78vw, 540px);
+
+  margin: 30px auto;
+
+  display: grid;
+
+  border: 2px solid #ffffff;
+
+  background: #ffffff;
+
+  aspect-ratio: 1 / 1;
+
+  overflow: hidden;
+}
+
+.pixel {
+  width: 100%;
+  height: 100%;
+
+  aspect-ratio: 1 / 1;
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  cursor: crosshair;
+
+  box-sizing: border-box;
+
+  transition: 0.08s ease;
+}
+
+.pixel:hover {
+  filter: brightness(0.92);
+}
+
+.tool-row input[type="color"] {
+  width: 54px;
+  height: 42px;
+
+  border: 1px solid #444;
+
+  background: transparent;
+
+  padding: 0;
+
+  cursor: pointer;
+}
+
+.editor-panel button {
+  margin: 6px;
+}
+
 .owned-card button {
   width: 100%;
   margin-top: 10px;
 }
 
-.editor-panel button {
-  margin: 10px;
+.danger-small {
+  border-color: #666;
+}
+
+@media (max-width: 700px) {
+  .pixel-grid {
+    width: 92vw;
+    height: 92vw;
+  }
+
+  .editor-panel {
+    padding: 18px;
+  }
 }

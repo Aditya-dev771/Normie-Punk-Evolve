@@ -1,12 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import "./App.css";
 
 const NFT_CONTRACT = "0xdeff04cc85d9cfe5b4b9dbce03129491d93f213c";
 const EVOLUTION_CONTRACT = "0x28d578E7F57dF6ef2A4365D605bAD4e6F2dabdB0";
-const PIXEL_STORAGE_CONTRACT = "0xB9ECb745d07d0Bb742D67E986f098c5EF9D98C02";
-const GRID_SIZE = 24;
+
+// Replace this with your new image storage contract
+const CUSTOM_IMAGE_CONTRACT = "0xf5731fB1594597C3CCDe8c8825B97f7F9030C380";
+
+const CANVAS_UNLOCKS = [
+  { label: "24x24", size: 24, cost: 50 },
+  { label: "64x64", size: 64, cost: 400 },
+  { label: "128x128", size: 128, cost: 2000 },
+];
 
 const NFT_ABI = [
   {
@@ -58,38 +65,16 @@ const EVOLUTION_ABI = [
   },
 ];
 
-const PIXEL_STORAGE_ABI = [
+const CUSTOM_IMAGE_ABI = [
   {
-    name: "savePixelChanges",
+    name: "setCustomImage",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
       { name: "tokenId", type: "uint256" },
-      {
-        name: "changes",
-        type: "tuple[]",
-        components: [
-          { name: "x", type: "uint8" },
-          { name: "y", type: "uint8" },
-        ],
-      },
+      { name: "imageURI", type: "string" },
     ],
     outputs: [],
-  },
-  {
-    name: "getPixelChanges",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "tokenId", type: "uint256" }],
-    outputs: [
-      {
-        type: "tuple[]",
-        components: [
-          { name: "x", type: "uint8" },
-          { name: "y", type: "uint8" },
-        ],
-      },
-    ],
   },
 ];
 
@@ -105,16 +90,20 @@ function App() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
-  const [tool, setTool] = useState("pencil");
-  const [mainTokenId, setMainTokenId] = useState("");
+  const [activeTab, setActiveTab] = useState("burn");
+  const [selectedTokenId, setSelectedTokenId] = useState("");
   const [burnTokenId, setBurnTokenId] = useState("");
-  const [mainImage, setMainImage] = useState("");
+  const [selectedImage, setSelectedImage] = useState("");
   const [burnImage, setBurnImage] = useState("");
   const [ownedPunks, setOwnedPunks] = useState([]);
   const [points, setPoints] = useState("0");
   const [status, setStatus] = useState("");
-  const [editorOpen, setEditorOpen] = useState(false);
+
+  const [gridSize, setGridSize] = useState(24);
+  const [tool, setTool] = useState("pencil");
   const [pixels, setPixels] = useState({});
+
+  const previewCanvasRef = useRef(null);
 
   function togglePixel(x, y) {
     const key = `${x}-${y}`;
@@ -134,43 +123,6 @@ function App() {
     });
   }
 
-  function downloadEvolutionImage() {
-    if (!mainImage) {
-      setStatus("Select Main Punk first");
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    const size = 480;
-    canvas.width = size;
-    canvas.height = size;
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-
-    img.onload = () => {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, 0, 0, size, size);
-
-      const pixelSize = size / GRID_SIZE;
-
-      Object.keys(pixels).forEach((key) => {
-        const [x, y] = key.split("-").map(Number);
-        ctx.fillStyle = "black";
-        ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-      });
-
-      const link = document.createElement("a");
-      link.download = `normie-punk-${mainTokenId}-evolved.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    };
-
-    img.src = mainImage;
-  }
-
   async function loadTokenImage(tokenId, type) {
     try {
       if (!tokenId || !publicClient) return;
@@ -185,35 +137,12 @@ function App() {
       const metadata = await fetch(ipfsToHttp(uri)).then((r) => r.json());
       const image = ipfsToHttp(metadata.image);
 
-      if (type === "main") setMainImage(image);
+      if (type === "selected") setSelectedImage(image);
       if (type === "burn") setBurnImage(image);
     } catch (err) {
       console.log(err);
-      if (type === "main") setMainImage("");
+      if (type === "selected") setSelectedImage("");
       if (type === "burn") setBurnImage("");
-    }
-  }
-
-  async function loadSavedPixels(tokenId) {
-    try {
-      if (!tokenId || !publicClient) return;
-
-      const changes = await publicClient.readContract({
-        address: PIXEL_STORAGE_CONTRACT,
-        abi: PIXEL_STORAGE_ABI,
-        functionName: "getPixelChanges",
-        args: [BigInt(tokenId)],
-      });
-
-      const loadedPixels = {};
-
-      changes.forEach((p) => {
-        loadedPixels[`${Number(p.x)}-${Number(p.y)}`] = true;
-      });
-
-      setPixels(loadedPixels);
-    } catch (err) {
-      console.log(err);
     }
   }
 
@@ -253,7 +182,7 @@ function App() {
         args: [address, EVOLUTION_CONTRACT],
       });
 
-      if (approved) return setStatus("Already approved");
+      if (approved) return setStatus("Evolution contract already approved");
 
       const hash = await writeContractAsync({
         address: NFT_CONTRACT,
@@ -269,24 +198,27 @@ function App() {
     }
   }
 
-  async function burnAndEvolve() {
+  async function burnAndEarnPoints() {
     try {
-      if (!mainTokenId || !burnTokenId) return setStatus("Select both Punks");
-      if (!publicClient) return setStatus("Public client not ready");
+      if (!selectedTokenId || !burnTokenId) {
+        return setStatus("Select main Punk and burn Punk first");
+      }
 
       const hash = await writeContractAsync({
         address: EVOLUTION_CONTRACT,
         abi: EVOLUTION_ABI,
         functionName: "burnToEarnPoints",
-        args: [BigInt(mainTokenId), BigInt(burnTokenId)],
+        args: [BigInt(selectedTokenId), BigInt(burnTokenId)],
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
 
-      setStatus("Burn complete. Edit points earned.");
+      setStatus("Burn complete. Points earned.");
+      setBurnTokenId("");
+      setBurnImage("");
+
       await checkPoints();
       await loadOwnedPunks();
-      setBurnTokenId("");
     } catch (error) {
       setStatus(error.shortMessage || error.message);
     }
@@ -294,14 +226,13 @@ function App() {
 
   async function checkPoints() {
     try {
-      if (!mainTokenId) return setStatus("Select Main Punk first");
-      if (!publicClient) return setStatus("Public client not ready");
+      if (!selectedTokenId) return setStatus("Select a Punk first");
 
       const result = await publicClient.readContract({
         address: EVOLUTION_CONTRACT,
         abi: EVOLUTION_ABI,
         functionName: "editPoints",
-        args: [BigInt(mainTokenId)],
+        args: [BigInt(selectedTokenId)],
       });
 
       setPoints(result.toString());
@@ -311,41 +242,120 @@ function App() {
     }
   }
 
-  async function saveEvolutionOnchain() {
-    try {
-      if (!mainTokenId) return setStatus("Select Main Punk first");
-      if (!publicClient) return setStatus("Public client not ready");
+  function selectCanvas(canvas) {
+    if (Number(points) < canvas.cost) {
+      setStatus(`You need ${canvas.cost} points for ${canvas.label}`);
+      return;
+    }
 
-      const changes = Object.keys(pixels).map((key) => {
+    setGridSize(canvas.size);
+    setPixels({});
+    setStatus(`${canvas.label} canvas selected`);
+  }
+
+  function exportCanvasBlob() {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      const size = 1024;
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+
+      const pixelSize = size / gridSize;
+
+      Object.entries(pixels).forEach(([key, pixelColor]) => {
         const [x, y] = key.split("-").map(Number);
-        return { x, y };
+        ctx.fillStyle = pixelColor;
+        ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
       });
 
-      setStatus("Opening save transaction...");
+      canvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+  }
 
+  async function uploadImageToIPFS(blob) {
+    // Recommended: create your own backend route for Pinata/NFT.Storage.
+    // Never expose Pinata secret key in frontend.
+    const formData = new FormData();
+    formData.append("file", blob, `normie-punk-${selectedTokenId}.png`);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!data.imageURI) {
+      throw new Error("IPFS upload failed");
+    }
+
+    return data.imageURI;
+  }
+
+  async function saveCustomNFTImage() {
+    try {
+      if (!selectedTokenId) return setStatus("Select a Punk first");
+
+      const unlock = CANVAS_UNLOCKS.find((c) => c.size === gridSize);
+
+      if (Number(points) < unlock.cost) {
+        return setStatus(`You need ${unlock.cost} points to save ${unlock.label}`);
+      }
+
+      if (Object.keys(pixels).length === 0) {
+        return setStatus("Draw something before saving");
+      }
+
+      setStatus("Exporting image...");
+      const blob = await exportCanvasBlob();
+
+      setStatus("Uploading image to IPFS...");
+      const imageURI = await uploadImageToIPFS(blob);
+
+      setStatus("Saving custom image onchain...");
       const hash = await writeContractAsync({
-        address: PIXEL_STORAGE_CONTRACT,
-        abi: PIXEL_STORAGE_ABI,
-        functionName: "savePixelChanges",
-        args: [BigInt(mainTokenId), changes],
+        address: CUSTOM_IMAGE_CONTRACT,
+        abi: CUSTOM_IMAGE_ABI,
+        functionName: "setCustomImage",
+        args: [BigInt(selectedTokenId), imageURI],
       });
 
-      setStatus("Saving evolution onchain...");
       await publicClient.waitForTransactionReceipt({ hash });
 
-      setStatus("Evolution saved permanently onchain");
+      setStatus("Custom NFT image saved. Refresh metadata on OpenSea.");
     } catch (error) {
+      console.log(error);
       setStatus(error.shortMessage || error.message);
     }
   }
 
-  useEffect(() => {
-    loadTokenImage(mainTokenId, "main");
-    loadSavedPixels(mainTokenId);
-  }, [mainTokenId, publicClient]);
+  function downloadImage() {
+    exportCanvasBlob().then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `normie-punk-${selectedTokenId || "custom"}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+  }
 
   useEffect(() => {
-    loadTokenImage(burnTokenId, "burn");
+    if (selectedTokenId) {
+      loadTokenImage(selectedTokenId, "selected");
+      checkPoints();
+    }
+  }, [selectedTokenId, publicClient]);
+
+  useEffect(() => {
+    if (burnTokenId) {
+      loadTokenImage(burnTokenId, "burn");
+    }
   }, [burnTokenId, publicClient]);
 
   useEffect(() => {
@@ -359,8 +369,8 @@ function App() {
           <ConnectButton />
         </div>
 
-        <h1>Normie Punk Evolution</h1>
-        <p>Burn one Punk to power up another Punk with edit points.</p>
+        <h1>Normie Punk Evolve</h1>
+        <p>Burn Punks, earn points, and create a new custom image from scratch.</p>
 
         <a
           href="https://normiepunk.xyz"
@@ -372,164 +382,234 @@ function App() {
         </a>
       </div>
 
-      <div className="panel">
-        <h2>1. Approve Evolution Contract</h2>
-        <button onClick={approveEvolution}>Approve</button>
-      </div>
+      <div className="tabs">
+        <button
+          className={activeTab === "burn" ? "tab-active" : ""}
+          onClick={() => setActiveTab("burn")}
+        >
+          Burn & Points
+        </button>
 
-      <div className="grid">
-        <div className="punk-card keep">
-          <p className="small-label">// MAIN VISUAL</p>
-          <h2>Main Punk</h2>
+        <button
+          className={activeTab === "punks" ? "tab-active" : ""}
+          onClick={() => setActiveTab("punks")}
+        >
+          My Punks
+        </button>
 
-          <input
-            placeholder="Main Punk ID"
-            value={mainTokenId}
-            onChange={(e) => setMainTokenId(e.target.value)}
-          />
-
-          <div className="visual-frame">
-            {mainImage ? (
-              <img src={mainImage} alt="Main Punk" />
-            ) : (
-              <div className="empty-visual">Enter Main Punk ID</div>
-            )}
-          </div>
-
-          <button onClick={checkPoints}>Load Points</button>
-          <button onClick={() => setEditorOpen(true)}>Open Pixel Editor</button>
-        </div>
-
-        <div className="punk-card burn">
-          <p className="small-label">// SACRIFICE VISUAL</p>
-          <h2>Burn Punk</h2>
-
-          <input
-            placeholder="Burn Punk ID"
-            value={burnTokenId}
-            onChange={(e) => setBurnTokenId(e.target.value)}
-          />
-
-          <div className="visual-frame burn-frame">
-            {burnImage ? (
-              <img src={burnImage} alt="Burn Punk" />
-            ) : (
-              <div className="empty-visual">Enter Burn Punk ID</div>
-            )}
-          </div>
-
-          <button className="danger-small" onClick={() => setBurnTokenId("")}>
-            Clear Burn
-          </button>
-        </div>
-      </div>
-
-      <div className="panel">
-        <h2>2. Burn & Evolve</h2>
-        <button className="danger" onClick={burnAndEvolve}>
-          Burn & Evolve
+        <button
+          className={activeTab === "editor" ? "tab-active" : ""}
+          onClick={() => setActiveTab("editor")}
+        >
+          Pixel Editor
         </button>
       </div>
 
-      <div className="panel">
-        <h2>Edit Points</h2>
-        <button onClick={checkPoints}>Check Points</button>
-        <p className="points">{points}</p>
+      <div className="selected-bar">
+        <p>
+          Selected Punk: <strong>{selectedTokenId || "None"}</strong>
+        </p>
+        <p>
+          Points: <strong>{points}</strong>
+        </p>
       </div>
 
-      {editorOpen && (
-        <div className="editor-panel">
-          <h2>Pixel Editor</h2>
-          <p>
-            Selected Punk #{mainTokenId || "none"} | Used Pixels:{" "}
-            {Object.keys(pixels).length}
-          </p>
-
-          <div className="tool-row">
-            <button
-              className={tool === "pencil" ? "tool-active" : ""}
-              onClick={() => setTool("pencil")}
-            >
-              Pencil
-            </button>
-
-            <button
-              className={tool === "eraser" ? "tool-active" : ""}
-              onClick={() => setTool("eraser")}
-            >
-              Eraser
-            </button>
+      {activeTab === "burn" && (
+        <div className="tab-panel">
+          <div className="panel">
+            <h2>1. Approve Evolution Contract</h2>
+            <p>Approve once so the burn contract can burn your selected sacrifice Punk.</p>
+            <button onClick={approveEvolution}>Approve Evolution</button>
           </div>
 
-          <div className="pixel-editor-wrapper">
-            {mainImage && (
-              <img
-                src={mainImage}
-                className="editor-background"
-                alt="Editor Background"
+          <div className="grid">
+            <div className="punk-card keep">
+              <p className="small-label">// NFT SLOT TO CUSTOMIZE</p>
+              <h2>Main Punk</h2>
+
+              <input
+                placeholder="Main Punk ID"
+                value={selectedTokenId}
+                onChange={(e) => setSelectedTokenId(e.target.value)}
               />
+
+              <div className="visual-frame">
+                {selectedImage ? (
+                  <img src={selectedImage} alt="Selected Punk" />
+                ) : (
+                  <div className="empty-visual">Select Main Punk</div>
+                )}
+              </div>
+
+              <button onClick={checkPoints}>Load Points</button>
+            </div>
+
+            <div className="punk-card burn">
+              <p className="small-label">// NFT TO BURN</p>
+              <h2>Burn Punk</h2>
+
+              <input
+                placeholder="Burn Punk ID"
+                value={burnTokenId}
+                onChange={(e) => setBurnTokenId(e.target.value)}
+              />
+
+              <div className="visual-frame burn-frame">
+                {burnImage ? (
+                  <img src={burnImage} alt="Burn Punk" />
+                ) : (
+                  <div className="empty-visual">Select Burn Punk</div>
+                )}
+              </div>
+
+              <button className="danger-small" onClick={() => setBurnTokenId("")}>
+                Clear Burn
+              </button>
+            </div>
+          </div>
+
+          <div className="panel">
+            <h2>2. Burn To Earn Points</h2>
+            <p>1 burned NFT = 20 points.</p>
+            <button className="danger" onClick={burnAndEarnPoints}>
+              Burn & Earn Points
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "punks" && (
+        <div className="tab-panel">
+          <div className="panel">
+            <h2>Your Normie Punks</h2>
+            <button onClick={loadOwnedPunks}>Reload My Normie Punks</button>
+
+            {isConnected && ownedPunks.length === 0 && (
+              <div className="no-punks">
+                <h3>No Normie Punks found</h3>
+                <p>You need a Normie Punk to use Burn & Evolve.</p>
+                <a
+                  href="https://opensea.io/collection/normie-punk-"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Buy on OpenSea
+                </a>
+              </div>
             )}
 
-            <div className="pixel-grid">
-              {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, index) => {
-                const x = index % GRID_SIZE;
-                const y = Math.floor(index / GRID_SIZE);
+            <div className="owned-grid">
+              {ownedPunks.map((punk) => (
+                <div className="owned-card" key={punk.id}>
+                  {punk.image && (
+                    <img src={punk.image} alt={`Normie Punk ${punk.id}`} />
+                  )}
+                  <h3>#{punk.id}</h3>
+
+                  <button
+                    onClick={() => {
+                      setSelectedTokenId(String(punk.id));
+                      setActiveTab("burn");
+                    }}
+                  >
+                    Set Main
+                  </button>
+
+                  <button
+                    className="danger-small"
+                    onClick={() => {
+                      setBurnTokenId(String(punk.id));
+                      setActiveTab("burn");
+                    }}
+                  >
+                    Set Burn
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "editor" && (
+        <div className="tab-panel">
+          <div className="editor-panel">
+            <h2>Pixel Editor</h2>
+            <p>This is a blank canvas. It does not combine with the original Punk image.</p>
+
+            {!selectedTokenId && (
+              <div className="warning-box">
+                Select a main Punk first before saving custom art.
+              </div>
+            )}
+
+            <div className="canvas-unlocks">
+              {CANVAS_UNLOCKS.map((canvas) => (
+                <button
+                  key={canvas.size}
+                  disabled={Number(points) < canvas.cost}
+                  className={gridSize === canvas.size ? "tool-active" : ""}
+                  onClick={() => selectCanvas(canvas)}
+                >
+                  {canvas.label} / {canvas.cost} Points
+                </button>
+              ))}
+            </div>
+
+            <div className="tool-row">
+              <button
+                className={tool === "pencil" ? "tool-active" : ""}
+                onClick={() => setTool("pencil")}
+              >
+                Pencil
+              </button>
+
+              <button
+                className={tool === "eraser" ? "tool-active" : ""}
+                onClick={() => setTool("eraser")}
+              >
+                Eraser
+              </button>
+
+            </div>
+
+            <p>
+              Canvas: {gridSize}x{gridSize} | Used Pixels:{" "}
+              {Object.keys(pixels).length}
+            </p>
+
+            <div
+              className="pixel-grid"
+              style={{
+                gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+              }}
+            >
+              {Array.from({ length: gridSize * gridSize }).map((_, index) => {
+                const x = index % gridSize;
+                const y = Math.floor(index / gridSize);
                 const key = `${x}-${y}`;
 
                 return (
                   <div
                     key={key}
-                    className={`pixel ${pixels[key] ? "active" : ""}`}
+                    className="pixel"
+                    style={{
+                      backgroundColor: pixels[key] ? "#000000" : "#ffffff",
+                    }}
                     onClick={() => togglePixel(x, y)}
                   />
                 );
               })}
             </div>
-          </div>
 
-          <button onClick={saveEvolutionOnchain}>Save Onchain</button>
-          <button onClick={() => setPixels({})}>Clear Changes</button>
-          <button onClick={() => setEditorOpen(false)}>Close Editor</button>
-          <button onClick={downloadEvolutionImage}>Download Image</button>
+            <div className="tool-row">
+              <button onClick={saveCustomNFTImage}>Save Custom NFT Image</button>
+              <button onClick={downloadImage}>Download PNG</button>
+              <button onClick={() => setPixels({})}>Clear Canvas</button>
+            </div>
+          </div>
         </div>
       )}
-
-      <div className="panel">
-        <h2>Your Normie Punks</h2>
-        <button onClick={loadOwnedPunks}>Reload My Normie Punks</button>
-
-        {isConnected && ownedPunks.length === 0 && (
-          <div className="no-punks">
-            <h3>No Normie Punks found</h3>
-            <p>You need a Normie Punk to use Burn & Evolve.</p>
-            <a
-              href="https://opensea.io/collection/normie-punk-"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Buy on OpenSea
-            </a>
-          </div>
-        )}
-
-        <div className="owned-grid">
-          {ownedPunks.map((punk) => (
-            <div className="owned-card" key={punk.id}>
-              {punk.image && <img src={punk.image} alt={`Normie Punk ${punk.id}`} />}
-              <h3>#{punk.id}</h3>
-              <button onClick={() => setMainTokenId(String(punk.id))}>
-                Set Main
-              </button>
-              <button
-                className="danger-small"
-                onClick={() => setBurnTokenId(String(punk.id))}
-              >
-                Set Burn
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div className="status">{status}</div>
     </div>
