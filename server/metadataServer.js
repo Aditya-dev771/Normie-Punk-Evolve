@@ -18,8 +18,8 @@ const ORIGINAL_BASE_URI =
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
 const CUSTOM_IMAGE_ABI = [
-  "function isCustomized(uint256 tokenId) view returns (bool)",
-  "function getCustomImage(uint256 tokenId) view returns (string)",
+  "function customized(uint256 tokenId) view returns (bool)",
+  "function getCustomImage(uint256 tokenId) view returns (string)"
 ];
 
 const customImageContract = new ethers.Contract(
@@ -64,8 +64,8 @@ app.get("/api/metadata/:tokenId", async (req, res) => {
       ipfsToHttp(originalUrl)
     ).then((r) => r.json());
 
-    const customized =
-      await customImageContract.isCustomized(tokenId);
+const customized =
+  await customImageContract.customized(tokenId);
 
     if (!customized) {
       return res.json(originalMetadata);
