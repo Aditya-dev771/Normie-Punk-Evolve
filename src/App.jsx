@@ -55,13 +55,6 @@ const EVOLUTION_ABI = [
     ],
     outputs: [],
   },
-  {
-    name: "editPoints",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "tokenId", type: "uint256" }],
-    outputs: [{ type: "uint256" }],
-  },
 ];
 
 const CUSTOM_IMAGE_ABI = [
@@ -116,13 +109,8 @@ function App() {
     setPixels((prev) => {
       const copy = { ...prev };
 
-      if (tool === "pencil") {
-        copy[key] = true;
-      }
-
-      if (tool === "eraser") {
-        delete copy[key];
-      }
+      if (tool === "pencil") copy[key] = true;
+      if (tool === "eraser") delete copy[key];
 
       return copy;
     });
@@ -221,9 +209,7 @@ function App() {
 
       await publicClient.waitForTransactionReceipt({ hash });
 
-await checkPoints();
-
-setStatus("Burn complete. Points earned.");
+      setStatus("Burn complete. Points earned.");
       setBurnTokenId("");
       setBurnImage("");
 
@@ -240,11 +226,11 @@ setStatus("Burn complete. Points earned.");
       if (!publicClient) return setStatus("Public client not ready");
 
       const result = await publicClient.readContract({
-  address: CUSTOM_IMAGE_CONTRACT,
-  abi: CUSTOM_IMAGE_ABI,
-  functionName: "availablePoints",
-  args: [BigInt(selectedTokenId)],
-});
+        address: CUSTOM_IMAGE_CONTRACT,
+        abi: CUSTOM_IMAGE_ABI,
+        functionName: "availablePoints",
+        args: [BigInt(selectedTokenId)],
+      });
 
       setPoints(result.toString());
       setStatus("Points loaded");
@@ -287,7 +273,6 @@ setStatus("Burn complete. Points earned.");
 
       Object.keys(pixels).forEach((key) => {
         const [x, y] = key.split("-").map(Number);
-
         ctx.fillStyle = "#000000";
         ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
       });
@@ -329,15 +314,13 @@ setStatus("Burn complete. Points earned.");
         address: CUSTOM_IMAGE_CONTRACT,
         abi: CUSTOM_IMAGE_ABI,
         functionName: "setCustomImage",
-        args: [
-  BigInt(selectedTokenId),
-  imageURI,
-  BigInt(unlock.cost),
-],
+        args: [BigInt(selectedTokenId), imageURI, BigInt(unlock.cost)],
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
-	await checkPoints();
+
+      await checkPoints();
+
       setStatus(`Custom image saved: ${imageURI}`);
     } catch (error) {
       console.log(error);
@@ -431,6 +414,13 @@ setStatus("Burn complete. Points earned.");
           onClick={() => setActiveTab("editor")}
         >
           Pixel Editor
+        </button>
+
+        <button
+          className={activeTab === "info" ? "tab-active" : ""}
+          onClick={() => setActiveTab("info")}
+        >
+          How It Works
         </button>
       </div>
 
@@ -636,6 +626,72 @@ setStatus("Burn complete. Points earned.");
               <button onClick={saveCustomNFTImage}>Save Custom NFT Image</button>
               <button onClick={downloadImage}>Download PNG</button>
               <button onClick={() => setPixels({})}>Clear Canvas</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "info" && (
+        <div className="tab-panel">
+          <div className="panel">
+            <h2>How Normie Punk Evolution Works</h2>
+
+            <div className="info-section">
+              <h3>Step 1 — Select Main Punk</h3>
+              <p>Your Main Punk is the NFT that will receive points and custom artwork.</p>
+              <div className="example-box">Example: Punk #52 = Main Punk</div>
+            </div>
+
+            <div className="info-section">
+              <h3>Step 2 — Select Burn Punk</h3>
+              <p>Choose another Normie Punk that you want to permanently burn.</p>
+              <div className="example-box">Example: Burn Punk #91</div>
+              <p>Burned NFTs are destroyed forever.</p>
+            </div>
+
+            <div className="info-section">
+              <h3>Step 3 — Burn To Earn Points</h3>
+              <div className="example-box">1 Burned NFT = 20 Points</div>
+              <p>Points are attached to your Main Punk.</p>
+            </div>
+
+            <div className="info-section">
+              <h3>Step 4 — Unlock Canvas Sizes</h3>
+              <div className="example-box">
+                24x24 = 50 Points
+                <br />
+                64x64 = 400 Points
+                <br />
+                128x128 = 2000 Points
+              </div>
+              <p>Bigger canvases allow more detailed custom creations.</p>
+            </div>
+
+            <div className="info-section">
+              <h3>Step 5 — Create Custom Artwork</h3>
+              <p>Use the Pixel Editor to draw a completely new evolved NFT from scratch.</p>
+              <p>The original image is not layered or combined. The saved image replaces it.</p>
+            </div>
+
+            <div className="info-section">
+              <h3>Step 6 — Save Onchain</h3>
+              <ul>
+                <li>Artwork uploads to IPFS</li>
+                <li>Image URI is saved onchain</li>
+                <li>Metadata updates automatically</li>
+                <li>OpenSea reflects the new image after refresh</li>
+                <li>Points are deducted based on selected canvas size</li>
+              </ul>
+            </div>
+
+            <div className="info-section">
+              <h3>Important Rules</h3>
+              <ul>
+                <li>Burns are permanent</li>
+                <li>Points cannot be recovered after saving</li>
+                <li>Token ID remains the same</li>
+                <li>Custom artwork replaces the displayed NFT image</li>
+              </ul>
             </div>
           </div>
         </div>
