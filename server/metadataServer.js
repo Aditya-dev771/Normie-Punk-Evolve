@@ -30,7 +30,7 @@ const customImageContract = new ethers.Contract(
 function ipfsToHttp(uri) {
   if (!uri) return "";
   return uri.startsWith("ipfs://")
-    ? uri.replace("ipfs://", "https://ipfs.io/ipfs/")
+    ? uri.replace("ipfs://", "https://retail-junglefowl-ianow.lighthouseweb3.xyz/ipfs/")
     : uri;
 }
 
@@ -71,7 +71,7 @@ app.get("/api/metadata/:tokenId", async (req, res) => {
 
     return res.json({
       ...originalMetadata,
-      image: customImage,
+      image: ipfsToWorkingLighthouseGateway(customImage),
       attributes: newAttributes,
     });
   } catch (error) {
